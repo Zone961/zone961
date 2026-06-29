@@ -645,6 +645,30 @@ function loadLocal(){
   try{const d=localStorage.getItem('z961_v3');if(d)Object.assign(S,JSON.parse(d));}catch(e){}
   // restore session if page was refreshed
   try{const u=sessionStorage.getItem('z961_user');if(u){currentUser=u;}}catch(e){}
+  migrateRecords();
+}
+function migrateRecords(){
+  // Fix old records that stored full ISO timestamps instead of HH:MM / YYYY-MM-DD
+  let changed=false;
+  S.records=S.records.filter(r=>{
+    // Try to fix date field
+    if(r.date&&r.date.includes('T')){
+      // It's an ISO string in the date field — extract date part
+      try{const d=new Date(r.date);if(!isNaN(d)){r.date=fmtDate(d);changed=true;}else{return false;}}catch(e){return false;}
+    }
+    if(r.date==='Invalid Date'||!r.date){return false;} // drop unfixable
+    // Fix checkIn field
+    if(r.checkIn&&r.checkIn.includes('T')){
+      try{const d=new Date(r.checkIn);if(!isNaN(d)){r.checkIn=fmtTime(d);changed=true;}else{r.checkIn=null;}}catch(e){r.checkIn=null;}
+    }
+    // Fix checkOut field
+    if(r.checkOut&&r.checkOut.includes('T')){
+      try{const d=new Date(r.checkOut);if(!isNaN(d)){r.checkOut=fmtTime(d);changed=true;}else{r.checkOut=null;}}catch(e){r.checkOut=null;}
+    }
+    return true;
+  });
+  if(changed){saveLocal();}
+}
   if(!S.anchor.date)S.anchor.date=fmtDate(new Date());
   if(!S.overrides)S.overrides={};
   if(!S.notes)S.notes={};
@@ -1146,7 +1170,7 @@ function renderTimesheet(){
     }
     const stillIn=r.checkIn&&!r.checkOut;
     const noteHtml=r.note?`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--amber-dim);color:var(--amber)">${r.note}</span>`:'—';
-    html+=`<tr class="${isAdmin?'clickable':''}" ${isAdmin?`onclick="openEdit('${r.id}')"`:''}>
+    html+=`<tr class="${isAdmin?'clickable':''}" ${isAdmin?`onclick="openEdit('${r.id}')"`:''} >`
       <td>${fmtShort(r.date)}</td>
       <td style="font-weight:500;color:${pc?pc.hex:'var(--text)'}">${name}</td>
       <td>${r.checkIn||'—'}</td>
