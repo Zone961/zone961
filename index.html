@@ -1146,7 +1146,7 @@ function renderTimesheet(){
     }
     const stillIn=r.checkIn&&!r.checkOut;
     const noteHtml=r.note?`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--amber-dim);color:var(--amber)">${r.note}</span>`:'—';
-    html+=`<tr class="${isAdmin?'clickable':''}" ${isAdmin?`onclick="openEdit('${r.id}')"`:''}}>
+    html+=`<tr class="${isAdmin?'clickable':''}" ${isAdmin?`onclick="openEdit('${r.id}')"`:''}>
       <td>${fmtShort(r.date)}</td>
       <td style="font-weight:500;color:${pc?pc.hex:'var(--text)'}">${name}</td>
       <td>${r.checkIn||'—'}</td>
