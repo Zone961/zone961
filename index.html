@@ -9,7 +9,7 @@
 :root{
   --bg:#0a0a0a;--surface:#141414;--surface2:#1c1c1c;--surface3:#242424;--surface4:#2c2c2c;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
-  --text:#efefef;--text2:#aaa;--text3:#666;
+  --text:#efefef;--text2:#ccc;--text3:#999;
   --accent:#e8ff47;--accent-dim:rgba(232,255,71,0.1);--accent-text:#c8df00;
   --green:#4ade80;--green-dim:rgba(74,222,128,0.1);
   --red:#f87171;--red-dim:rgba(248,113,113,0.1);
@@ -374,21 +374,51 @@ select option{background:var(--surface2);}
   <!-- REPORTS -->
   <div id="screen-reports" class="screen">
     <div class="section-head">
-      <div><div class="section-title">Reports</div><div class="section-sub">Monthly hours and profit split</div></div>
+      <div><div class="section-title">Reports</div><div class="section-sub">Monthly breakdown</div></div>
       <select id="reportMonth" onchange="renderReports()" style="padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;font-family:'Inter',sans-serif"></select>
     </div>
-    <div class="card"><div class="card-title">Partners — hours attended</div><div id="hoursBreakdown"></div></div>
-    <div class="card" id="employeePaySection" style="display:none">
-      <div class="card-title">Employees — pay this month</div>
-      <div id="employeePayBreakdown"></div>
+    <!-- Tab switcher -->
+    <div class="nav" style="margin-bottom:16px">
+      <button onclick="switchReportTab('partners')" id="rtab-partners" class="active">Partners</button>
+      <button onclick="switchReportTab('employees')" id="rtab-employees">Employees</button>
     </div>
-    <div class="card">
-      <div class="card-title">Profit split calculator</div>
-      <div class="grid2" style="margin-bottom:16px">
-        <div class="ig" style="margin:0"><label>Total profit this month ($)</label><input type="number" id="profitInput" class="profit-input" placeholder="0" oninput="calcSplit()"></div>
-        <div class="ig" style="margin:0"><label>Attendance pool (%)</label><input type="number" id="poolPct" class="profit-input" placeholder="20" value="20" min="0" max="100" oninput="calcSplit()"></div>
+
+    <!-- PARTNERS TAB -->
+    <div id="report-partners-tab">
+      <div class="card" style="max-width:680px;margin:0 auto 16px">
+        <div class="card-title">Hours &amp; Days attended</div>
+        <div id="hoursBreakdown"></div>
       </div>
-      <div id="splitResult"></div>
+      <div class="card" style="max-width:680px;margin:0 auto 16px">
+        <div class="card-title">Profit split calculator</div>
+        <div class="grid2" style="margin-bottom:16px">
+          <div class="ig" style="margin:0"><label>Total profit this month ($)</label><input type="number" id="profitInput" class="profit-input" placeholder="0" oninput="calcSplit()"></div>
+          <div class="ig" style="margin:0"><label>Attendance pool (%)</label><input type="number" id="poolPct" class="profit-input" placeholder="20" value="20" min="0" max="100" oninput="calcSplit()"></div>
+        </div>
+        <div id="splitResult"></div>
+      </div>
+      <div class="card" style="max-width:680px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin:0">Saved monthly records</div>
+          <button class="btn btn-sm btn-accent" onclick="savePartnerRecord()">Save this month</button>
+        </div>
+        <div id="savedPartnerRecords" style="font-size:13px;color:var(--text3)">No saved records yet.</div>
+      </div>
+    </div>
+
+    <!-- EMPLOYEES TAB -->
+    <div id="report-employees-tab" style="display:none">
+      <div class="card" style="max-width:680px;margin:0 auto 16px" id="employeePaySection">
+        <div class="card-title">Employee pay — this month</div>
+        <div id="employeePayBreakdown"><div style="font-size:13px;color:var(--text3)">No employees yet.</div></div>
+      </div>
+      <div class="card" style="max-width:680px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin:0">Payment records</div>
+          <button class="btn btn-sm btn-accent" onclick="openAddPayment()">+ Log payment</button>
+        </div>
+        <div id="paymentRecords" style="font-size:13px;color:var(--text3)">No payments logged yet.</div>
+      </div>
     </div>
   </div>
 
@@ -537,6 +567,8 @@ let S = {
   partnerPin: '1961',
   adminPin: '0000',
   anchor: {date:null, personIdx:0},
+  payments: [],
+  savedReports: [],
   sheetsUrl: ''
 };
 
@@ -611,6 +643,8 @@ const DS_COLOR={
 function saveLocal(){try{localStorage.setItem('z961_v3',JSON.stringify(S));}catch(e){}}
 function loadLocal(){
   try{const d=localStorage.getItem('z961_v3');if(d)Object.assign(S,JSON.parse(d));}catch(e){}
+  // restore session if page was refreshed
+  try{const u=sessionStorage.getItem('z961_user');if(u){currentUser=u;}}catch(e){}
   if(!S.anchor.date)S.anchor.date=fmtDate(new Date());
   if(!S.overrides)S.overrides={};
   if(!S.notes)S.notes={};
@@ -671,10 +705,16 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 // ── SHIFT LOGIC ───────────────────────────────────────────────────────────
 function getAutoShift(dateStr){
   const diff=dayDiff(parseDate(S.anchor.date),parseDate(dateStr));
-  const n=S.people.length;if(!n)return{};
+  const partners=S.people.filter(p=>p.role==='partner');
+  const n=partners.length;if(!n)return{};
   const op=((S.anchor.personIdx+diff)%n+n)%n;
   const r={};
-  S.people.forEach((p,i)=>{if(i===op)r[p.id]='open';else if(i===(op+1)%n)r[p.id]='join';else r[p.id]='off';});
+  // partners rotate, employees get 'off' by default (manual only)
+  S.people.forEach(p=>{
+    if(p.role==='employee'){r[p.id]='off';return;}
+    const i=partners.indexOf(p);
+    if(i===op)r[p.id]='open';else if(i===(op+1)%n)r[p.id]='join';else r[p.id]='off';
+  });
   return r;
 }
 function getDayStatuses(dateStr){
@@ -716,6 +756,7 @@ async function checkPin(){
   }
 }
 async function bootApp(){
+  try{sessionStorage.setItem('z961_user',currentUser);}catch(e){}
   document.getElementById('pinScreen').style.display='none';
   document.getElementById('mainApp').style.display='block';
   document.getElementById('roleTag').textContent=currentUser==='admin'?'Admin':'Partner';
@@ -726,6 +767,7 @@ async function bootApp(){
   startClock();populateSelectors();populateReportMonths();renderAll();
 }
 function doLogout(){
+  try{sessionStorage.removeItem('z961_user');}catch(e){}
   currentUser=null;pinBuffer='';
   document.getElementById('pinScreen').style.display='flex';
   document.getElementById('mainApp').style.display='none';
@@ -1167,56 +1209,173 @@ function totalHours(personId,month){
       let m=(oh*60+om)-(ih*60+im);if(m<0)m+=1440;return sum+m/60;
     },0);
 }
+function switchReportTab(tab){
+  document.getElementById('report-partners-tab').style.display=tab==='partners'?'':'none';
+  document.getElementById('report-employees-tab').style.display=tab==='employees'?'':'none';
+  document.getElementById('rtab-partners').classList.toggle('active',tab==='partners');
+  document.getElementById('rtab-employees').classList.toggle('active',tab==='employees');
+}
+function totalDays(personId,month){
+  const dates=new Set(S.records.filter(r=>r.personId===personId&&r.date.startsWith(month)&&r.checkIn).map(r=>r.date));
+  return dates.size;
+}
 function renderReports(){
   const month=document.getElementById('reportMonth').value;if(!month)return;
   const partners=S.people.filter(p=>p.role==='partner');
   const employees=S.people.filter(p=>p.role==='employee');
 
-  // PARTNERS — hours
-  const pData=partners.map(p=>({p,hrs:totalHours(p.id,month)}));
+  // PARTNERS — hours + days
+  const pData=partners.map(p=>({p,hrs:totalHours(p.id,month),days:totalDays(p.id,month)}));
   const maxHrs=Math.max(...pData.map(d=>d.hrs),1);
-  document.getElementById('hoursBreakdown').innerHTML=pData.length?pData.map(({p,hrs})=>{
+  document.getElementById('hoursBreakdown').innerHTML=pData.length?pData.map(({p,hrs,days})=>{
     const pc=pColor(p);
-    return`<div style="margin-bottom:18px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
-        <span style="font-weight:500;color:${pc.hex}">${p.name}</span>
-        <span style="font-size:13px;color:var(--text2)">${hrs.toFixed(1)} hours</span>
+    return`<div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font-weight:600;font-size:15px;color:${pc.hex}">${p.name}</span>
+        <div style="text-align:right">
+          <span style="font-size:14px;font-weight:500;color:var(--text)">${hrs.toFixed(1)}h</span>
+          <span style="font-size:12px;color:var(--text2);margin-left:8px">${days} day${days!==1?'s':''}</span>
+        </div>
       </div>
       <div class="hours-bar"><div class="hours-fill" style="width:${(hrs/maxHrs*100).toFixed(0)}%;background:${pc.hex}"></div></div>
     </div>`;
   }).join(''):'<div style="font-size:13px;color:var(--text3)">No partners yet.</div>';
 
   // EMPLOYEES — pay calculation
-  const empSection=document.getElementById('employeePaySection');
-  if(employees.length){
-    empSection.style.display='';
-    document.getElementById('employeePayBreakdown').innerHTML=employees.map(p=>{
-      const pc=pColor(p);
-      const hrs=totalHours(p.id,month);
-      const pay=p.pay;
-      if(!pay){return`<div style="padding:10px 0;color:var(--text3);font-size:13px">${p.name} — no pay info set</div>`;}
-      let hourlyRate=0;
-      if(pay.rateType==='hourly') hourlyRate=pay.amount;
-      else if(pay.rateType==='daily') hourlyRate=pay.amount/(pay.hoursPerDay||8);
-      else if(pay.rateType==='monthly') hourlyRate=pay.amount/((pay.daysPerMonth||26)*(pay.hoursPerDay||8));
-      const earned=hrs*hourlyRate;
-      const rateLabel={hourly:`$${pay.amount}/hr`,daily:`$${pay.amount}/day · ${pay.hoursPerDay}h/day`,monthly:`$${pay.amount}/mo · ${pay.hoursPerDay}h/day · ${pay.daysPerMonth}d/mo`}[pay.rateType];
-      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+  document.getElementById('employeePayBreakdown').innerHTML=employees.length?employees.map(p=>{
+    const pc=pColor(p);
+    const hrs=totalHours(p.id,month);
+    const days=totalDays(p.id,month);
+    const pay=p.pay;
+    if(!pay){return`<div style="padding:10px 0;color:var(--text3);font-size:13px">${p.name} — no pay info set</div>`;}
+    let hourlyRate=0;
+    if(pay.rateType==='hourly') hourlyRate=pay.amount;
+    else if(pay.rateType==='daily') hourlyRate=pay.amount/(pay.hoursPerDay||8);
+    else if(pay.rateType==='monthly') hourlyRate=pay.amount/((pay.daysPerMonth||26)*(pay.hoursPerDay||8));
+    const earned=hrs*hourlyRate;
+    const rateLabel={hourly:`$${pay.amount}/hr`,daily:`$${pay.amount}/day · ${pay.hoursPerDay}h/day`,monthly:`$${pay.amount}/mo · ${pay.hoursPerDay}h/day · ${pay.daysPerMonth}d/mo`}[pay.rateType];
+    // check if paid
+    const payments=S.payments?S.payments.filter(pm=>pm.personId===p.id&&pm.month===month):[];
+    const paidTotal=payments.reduce((a,b)=>a+b.amount,0);
+    const remaining=Math.max(0,earned-paidTotal);
+    return`<div style="padding:16px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:50%;background:${pc.dim};color:${pc.hex};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">${p.name.slice(0,2).toUpperCase()}</div>
+          <div style="width:38px;height:38px;border-radius:50%;background:${pc.dim};color:${pc.hex};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">${p.name.slice(0,2).toUpperCase()}</div>
           <div>
-            <div style="font-size:14px;font-weight:500;color:${pc.hex}">${p.name}</div>
-            <div style="font-size:12px;color:var(--text3)">${rateLabel} · ${hrs.toFixed(1)}h worked</div>
+            <div style="font-size:15px;font-weight:600;color:${pc.hex}">${p.name}</div>
+            <div style="font-size:12px;color:var(--text2)">${rateLabel} · ${hrs.toFixed(1)}h · ${days} days</div>
           </div>
         </div>
-        <div style="font-size:22px;font-weight:600">$${earned.toFixed(0)}</div>
-      </div>`;
-    }).join('');
-  } else {
-    empSection.style.display='none';
-  }
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:700">$${earned.toFixed(0)}</div>
+          <div style="font-size:12px;color:${remaining>0?'var(--amber)':'var(--green)'}">
+            ${paidTotal>0?`Paid $${paidTotal.toFixed(0)} · Due $${remaining.toFixed(0)}`:'Not paid yet'}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):'<div style="font-size:13px;color:var(--text3)">No employees yet.</div>';
 
+  renderPaymentRecords(month);
+  renderSavedPartnerRecords();
   calcSplit();
+}
+function renderPaymentRecords(month){
+  if(!S.payments)S.payments=[];
+  const employees=S.people.filter(p=>p.role==='employee');
+  const monthPayments=S.payments.filter(pm=>pm.month===month);
+  const el=document.getElementById('paymentRecords');
+  if(!monthPayments.length){el.innerHTML='<div style="font-size:13px;color:var(--text3)">No payments logged for this month.</div>';return;}
+  el.innerHTML=monthPayments.map(pm=>{
+    const p=S.people.find(x=>x.id===pm.personId);
+    const pc=p?pColor(p):{hex:'#aaa',dim:'rgba(170,170,170,0.15)'};
+    const name=p?p.name:'Unknown';
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:30px;height:30px;border-radius:50%;background:${pc.dim};color:${pc.hex};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${name.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div style="font-size:14px;font-weight:500;color:${pc.hex}">${name}</div>
+          <div style="font-size:11px;color:var(--text2)">${pm.date||''}${pm.note?' · '+pm.note:''}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:16px;font-weight:600;color:var(--green)">$${pm.amount.toFixed(0)}</div>
+        ${currentUser==='admin'?`<button class="btn btn-sm btn-danger" onclick="deletePayment('${pm.id}')">×</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function openAddPayment(){
+  const month=document.getElementById('reportMonth').value;
+  const employees=S.people.filter(p=>p.role==='employee');
+  if(!employees.length){alert('No employees to log payment for.');return;}
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:flex;align-items:center;justify-content:center;';
+  const empOptions=employees.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:16px;padding:24px;max-width:380px;width:90%">
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px">Log Payment</div>
+    <div class="ig"><label>Employee</label><select id="pm_person">${empOptions}</select></div>
+    <div class="ig"><label>Amount paid ($)</label><input type="number" id="pm_amount" placeholder="0"></div>
+    <div class="ig"><label>Date</label><input type="date" id="pm_date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="ig"><label>Note (optional)</label><input type="text" id="pm_note" placeholder="e.g. Cash payment"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn" onclick="this.closest('[style]').remove()">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmAddPayment(this,'${month}')">Save</button>
+    </div>
+  </div>`;
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
+  document.body.appendChild(modal);
+}
+async function confirmAddPayment(btn,month){
+  const personId=document.getElementById('pm_person').value;
+  const amount=parseFloat(document.getElementById('pm_amount').value)||0;
+  const date=document.getElementById('pm_date').value;
+  const note=document.getElementById('pm_note').value.trim();
+  if(!amount){alert('Enter an amount.');return;}
+  if(!S.payments)S.payments=[];
+  const rec={id:uid(),personId,month,amount,date,note};
+  S.payments.push(rec);
+  saveLocal();await syncToSheets();
+  btn.closest('[style]').remove();
+  renderReports();
+}
+async function deletePayment(id){
+  if(!confirm('Delete this payment?'))return;
+  S.payments=(S.payments||[]).filter(p=>p.id!==id);
+  saveLocal();await syncToSheets();renderReports();
+}
+function savePartnerRecord(){
+  const month=document.getElementById('reportMonth').value;
+  if(!S.savedReports)S.savedReports=[];
+  const partners=S.people.filter(p=>p.role==='partner');
+  const data=partners.map(p=>({name:p.name,hrs:totalHours(p.id,month),days:totalDays(p.id,month)}));
+  const existing=S.savedReports.findIndex(r=>r.month===month);
+  const rec={month,data,savedAt:new Date().toISOString()};
+  if(existing>=0)S.savedReports[existing]=rec;else S.savedReports.push(rec);
+  saveLocal();syncToSheets();
+  renderSavedPartnerRecords();
+  showToast('Record saved for '+month);
+}
+function renderSavedPartnerRecords(){
+  if(!S.savedReports||!S.savedReports.length){document.getElementById('savedPartnerRecords').innerHTML='<div style="font-size:13px;color:var(--text3)">No saved records yet. Click "Save this month" to record.</div>';return;}
+  const sorted=[...S.savedReports].sort((a,b)=>b.month.localeCompare(a.month));
+  document.getElementById('savedPartnerRecords').innerHTML=sorted.map(r=>{
+    const d=new Date(r.month+'-01');
+    const label=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    return`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">${label}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        ${r.data.map(d=>`<div style="font-size:12px;color:var(--text2)"><span style="font-weight:600;color:var(--text)">${d.name}</span> ${d.hrs.toFixed(1)}h · ${d.days} days</div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function showToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface3);color:var(--text);padding:10px 20px;border-radius:20px;font-size:13px;z-index:500;border:1px solid var(--border2);';
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
 function calcSplit(){
   const month=document.getElementById('reportMonth').value;
@@ -1251,7 +1410,8 @@ function renderSettings(){
   document.getElementById('sheetsUrl').value=S.sheetsUrl||'';
   document.getElementById('anchorDate').value=S.anchor.date||fmtDate(new Date());
   const ap=document.getElementById('anchorPerson');
-  ap.innerHTML=S.people.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');
+  const partners=S.people.filter(p=>p.role==='partner');
+  ap.innerHTML=partners.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');
   ap.value=S.anchor.personIdx||0;
   const list=document.getElementById('peopleList');
   list.innerHTML=S.people.length?S.people.map((p,i)=>{
@@ -1269,9 +1429,52 @@ function renderSettings(){
           <div style="font-size:12px;color:var(--text3)">${p.role} · ${payLabel}</div>
         </div>
       </div>
-      <button class="btn btn-sm btn-danger" onclick="removePerson(${i})">Remove</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm" onclick="editPersonColor(${i})" style="padding:5px 10px">🎨</button>
+        <button class="btn btn-sm btn-danger" onclick="removePerson(${i})">Remove</button>
+      </div>
     </div>`;
   }).join(''):'<div style="font-size:13px;color:var(--text3)">No people yet.</div>';
+}
+function editPersonColor(idx){
+  const p=S.people[idx];
+  const used=getUsedColorIdxs().filter(i=>i!==p.colorIdx);
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:flex;align-items:center;justify-content:center;';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface);border-radius:16px;padding:24px;max-width:360px;width:90%;';
+  box.innerHTML=`<div style="font-size:16px;font-weight:600;margin-bottom:16px">Pick color for ${p.name}</div>
+    <div id="editColorPicker" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="this.closest('[style]').remove()">Cancel</button>
+    </div>`;
+  const picker=box.querySelector('#editColorPicker');
+  const ALL_COLORS_LOCAL=[
+    {hex:'#f97316',dim:'rgba(249,115,22,0.15)'},{hex:'#22d3ee',dim:'rgba(34,211,238,0.15)'},
+    {hex:'#a78bfa',dim:'rgba(167,139,250,0.15)'},{hex:'#f472b6',dim:'rgba(244,114,182,0.15)'},
+    {hex:'#34d399',dim:'rgba(52,211,153,0.15)'},{hex:'#fbbf24',dim:'rgba(251,191,36,0.15)'},
+    {hex:'#38bdf8',dim:'rgba(56,189,248,0.15)'},{hex:'#e879f9',dim:'rgba(232,121,249,0.15)'},
+    {hex:'#a3e635',dim:'rgba(163,230,53,0.15)'},{hex:'#f87171',dim:'rgba(248,113,113,0.15)'},
+    {hex:'#facc15',dim:'rgba(250,204,21,0.15)'},{hex:'#818cf8',dim:'rgba(129,140,248,0.15)'},
+    {hex:'#2dd4bf',dim:'rgba(45,212,191,0.15)'},{hex:'#fb7185',dim:'rgba(251,113,133,0.15)'},
+    {hex:'#bef264',dim:'rgba(190,242,100,0.15)'},{hex:'#60a5fa',dim:'rgba(96,165,250,0.15)'}
+  ];
+  ALL_COLORS_LOCAL.forEach((c,i)=>{
+    const isUsed=used.includes(i);
+    const isSel=i===p.colorIdx;
+    const sw=document.createElement('div');
+    sw.style.cssText=`width:36px;height:36px;border-radius:50%;background:${c.hex};cursor:${isUsed?'not-allowed':'pointer'};opacity:${isUsed?0.3:1};border:${isSel?'3px solid #fff':'3px solid transparent'};box-sizing:border-box;`;
+    if(!isUsed)sw.onclick=()=>{
+      S.people[idx].colorIdx=i;
+      saveLocal();syncToSheets();
+      renderSettings();renderAll();
+      modal.remove();
+    };
+    picker.appendChild(sw);
+  });
+  modal.appendChild(box);
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
+  document.body.appendChild(modal);
 }
 function openAddPerson(){
   document.getElementById('newPersonName').value='';
@@ -1356,6 +1559,7 @@ function savePins(){
 function saveAnchor(){
   S.anchor.date=document.getElementById('anchorDate').value;
   S.anchor.personIdx=parseInt(document.getElementById('anchorPerson').value)||0;
+  // personIdx is now index within partners array only
   saveLocal();syncToSheets();renderScheduleView();renderToday();
 }
 async function saveUrl(){
@@ -1386,6 +1590,14 @@ function populateSelectors(){
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 loadLocal();
+initReportMonth();
+// check for existing session (page refresh)
+(function(){
+  try{
+    const u=sessionStorage.getItem('z961_user');
+    if(u){currentUser=u;bootApp();}
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
