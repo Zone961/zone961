@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zone 961</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222;
+    --surface3: #2a2a2a;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #999;
+    --text3: #666;
+    --accent: #e8ff47;
+    --accent-dim: rgba(232,255,71,0.12);
+    --accent-text: #c8df00;
+    --green: #4ade80;
+    --green-dim: rgba(74,222,128,0.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251,191,36,0.12);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.12);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96,165,250,0.12);
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  
+  /* PIN SCREEN */
+  #pinScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200;
+  }
+  .pin-logo { font-size: 28px; font-weight: 600; letter-spacing: -1px; margin-bottom: 6px; }
+  .pin-logo span { color: var(--accent); }
+  .pin-sub { font-size: 13px; color: var(--text2); margin-bottom: 40px; }
+  .pin-dots { display: flex; gap: 14px; margin-bottom: 36px; }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border2); transition: all .12s; }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3, 76px); gap: 10px; }
+  .pin-key {
+    width: 76px; height: 76px; border-radius: 50%; border: 1px solid var(--border2);
+    background: var(--surface); color: var(--text); font-size: 22px; font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: all .1s;
+  }
+  .pin-key:hover { background: var(--surface2); }
+  .pin-key:active { transform: scale(.93); background: var(--surface3); }
+  .pin-key.small { font-size: 13px; }
+  .pin-error { color: var(--red); font-size: 13px; margin-top: 16px; min-height: 20px; text-align: center; }
+
+  /* MAIN APP */
+  #mainApp { display: none; max-width: 880px; margin: 0 auto; padding: 16px; }
+  
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0 18px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .logo { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .header-time { font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .role-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500;
+    background: var(--accent-dim); color: var(--accent-text); border: 1px solid rgba(232,255,71,0.2);
+  }
+  .sync-badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 20px;
+    background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,222,128,0.2);
+    display: none;
+  }
+  .sync-badge.error { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,0.2); }
+
+  /* NAV */
+  .nav {
+    display: flex; gap: 2px; background: var(--surface); border-radius: var(--radius);
+    padding: 4px; border: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto;
+  }
+  .nav button {
+    padding: 7px 14px; border: none; background: transparent; border-radius: 6px;
+    font-size: 13px; cursor: pointer; color: var(--text2); transition: all .15s;
+    font-family: 'Inter', sans-serif; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+  }
+  .nav button.active { background: var(--surface3); color: var(--text); font-weight: 500; border: 1px solid var(--border2); }
+  .nav button:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; font-weight: 500; }
+
+  /* GRID */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .grid3 { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } }
+
+  /* PERSON CARDS */
+  .person-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; transition: border-color .15s;
+  }
+  .person-card:hover { border-color: var(--border2); }
+  .person-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; margin-bottom: 10px;
+  }
+  .person-name { font-size: 15px; font-weight: 500; margin-bottom: 3px; }
+  .person-role-text { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 4px 9px; border-radius: 20px; font-weight: 500; }
+  .badge-green { background: var(--green-dim); color: var(--green); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); }
+  .badge-gray { background: rgba(255,255,255,.06); color: var(--text2); }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-red { background: var(--red-dim); color: var(--red); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* CHECKIN BTN */
+  .checkin-btn {
+    width: 100%; margin-top: 12px; padding: 9px;
+    border-radius: var(--radius); border: 1px solid var(--border2);
+    background: transparent; font-size: 13px; cursor: pointer;
+    font-family: 'Inter', sans-serif; color: var(--text); transition: all .15s; font-weight: 500;
+  }
+  .checkin-btn:hover { background: var(--surface2); }
+  .checkin-btn.in-btn { background: var(--green-dim); color: var(--green); border-color: rgba(74,222,128,0.25); }
+  .checkin-btn.out-btn { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,0.25); }
+
+  /* SHIFT TAGS */
+  .shift-tag { font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+  .shift-opener { background: var(--accent-dim); color: var(--accent-text); }
+  .shift-second { background: var(--purple-dim); color: var(--purple); }
+  .shift-off { background: rgba(255,255,255,.05); color: var(--text3); }
+  .shift-na { background: var(--amber-dim); color: var(--amber); }
+
+  /* BUTTONS */
+  .btn {
+    padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: transparent; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif;
+    color: var(--text); transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn-accent { background: var(--accent); color: #000; border-color: transparent; font-weight: 500; }
+  .btn-accent:hover { background: #d4e83e; }
+  .btn-danger { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,0.25); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* INPUTS */
+  .input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .input-group label { font-size: 13px; color: var(--text2); }
+  .input-group input, .input-group select {
+    padding: 9px 12px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif;
+  }
+  .input-group input:focus, .input-group select:focus { outline: none; border-color: rgba(232,255,71,0.4); }
+  select option { background: var(--surface2); }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; color: var(--text3); font-weight: 500; font-size: 11px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .05em; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
+
+  /* SCHEDULE */
+  .schedule-header { display: grid; grid-template-columns: 100px repeat(var(--cols, 3), 1fr); gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .schedule-row { display: grid; grid-template-columns: 100px repeat(var(--cols, 3), 1fr); gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-row.today-row { background: rgba(232,255,71,0.04); border-radius: 6px; padding: 10px 8px; margin: 0 -8px; }
+  .avail-btn {
+    font-size: 11px; padding: 3px 8px; border-radius: 20px;
+    border: 1px solid var(--border2); background: transparent; cursor: pointer;
+    color: var(--text3); font-family: 'Inter', sans-serif; margin-top: 4px; display: block; width: fit-content;
+  }
+  .avail-btn:hover { color: var(--text); }
+  .avail-btn.na { background: var(--amber-dim); color: var(--amber); border-color: rgba(251,191,36,0.3); }
+
+  /* REPORTS */
+  .hours-bar { height: 5px; border-radius: 3px; background: var(--surface3); overflow: hidden; margin-top: 6px; }
+  .hours-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+  .profit-input {
+    font-size: 22px; font-weight: 500; width: 100%; padding: 10px 12px;
+    border-radius: var(--radius); border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); font-family: 'Inter', sans-serif;
+  }
+  .profit-input:focus { outline: none; border-color: rgba(232,255,71,0.4); }
+  .split-card {
+    background: var(--surface2); border-radius: 10px; padding: 16px; border: 1px solid var(--border);
+  }
+  .split-name { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .split-amount { font-size: 26px; font-weight: 600; margin-bottom: 4px; }
+  .split-detail { font-size: 11px; color: var(--text3); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 14px;
+    padding: 24px; width: 340px; max-width: 95vw;
+  }
+  .modal h3 { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* MISC */
+  .section-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .section-title { font-size: 20px; font-weight: 500; margin-bottom: 3px; }
+  .section-sub { font-size: 13px; color: var(--text2); }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
+  .locked-notice {
+    font-size: 12px; color: var(--text3); padding: 9px 12px;
+    background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  }
+  .loading-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; z-index: 300;
+    font-size: 14px; color: var(--text2); flex-direction: column; gap: 12px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 28px; height: 28px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .setup-banner {
+    background: var(--amber-dim); border: 1px solid rgba(251,191,36,0.3);
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px;
+    font-size: 13px; color: var(--amber); display: none;
+  }
+  .setup-banner a { color: var(--amber); }
+  .url-input {
+    width: 100%; padding: 9px 12px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); font-size: 13px; font-family: 'Inter', sans-serif;
+    margin-top: 8px;
+  }
+  .url-input:focus { outline: none; border-color: rgba(232,255,71,0.4); }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loader">
+  <div class="spinner"></div>
+  <div id="loaderMsg">Connecting...</div>
+</div>
+
+<!-- PIN SCREEN -->
+<div id="pinScreen">
+  <div class="pin-logo">Zone <span>961</span></div>
+  <div class="pin-sub">Enter PIN to continue</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key small" onclick="pinPress('clear')">Clear</button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key small" onclick="pinPress('del')">⌫</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp">
+
+  <!-- SETUP BANNER -->
+  <div class="setup-banner" id="setupBanner">
+    ⚠️ Google Sheets not connected. Data is saved locally only.
+    Go to <strong>Settings → Connect Google Sheets</strong> to enable cloud sync.
+  </div>
+
+  <div class="header">
+    <div class="logo">Zone <span>961</span></div>
+    <div class="header-right">
+      <div class="sync-badge" id="syncBadge">● Synced</div>
+      <div class="header-time" id="headerTime"></div>
+      <div class="role-badge" id="roleTag"></div>
+    </div>
+  </div>
+
+  <div class="nav" id="mainNav">
+    <button class="active" onclick="showScreen('today')">🏠 Today</button>
+    <button onclick="showScreen('schedule')">📅 Schedule</button>
+    <button onclick="showScreen('timesheet')">🕐 Timesheet</button>
+    <button onclick="showScreen('reports')">📊 Reports</button>
+    <button id="settingsNavBtn" onclick="showScreen('settings')" style="display:none">⚙️ Settings</button>
+  </div>
+
+  <!-- TODAY -->
+  <div id="screen-today" class="screen active">
+    <div class="section-head">
+      <div>
+        <div class="section-title" id="todayTitle"></div>
+        <div class="section-sub">Tap your name to check in or out</div>
+      </div>
+    </div>
+    <div class="grid3" id="todayCards"></div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Today's shift</div>
+      <div id="shiftSummary"></div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div id="screen-schedule" class="screen">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Schedule</div>
+        <div class="section-sub">14-day rotating view — mark unavailability in advance</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="changeWeek(-1)">← Prev</button>
+        <button class="btn btn-sm" onclick="changeWeek(1)">Next →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="schedule-header" id="scheduleHeader"></div>
+      <div id="scheduleRows"></div>
+    </div>
+    <div class="locked-notice">🔒 Past days are locked. Admin can correct past records in the Timesheet tab.</div>
+  </div>
+
+  <!-- TIMESHEET -->
+  <div id="screen-timesheet" class="screen">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Timesheet</div>
+        <div class="section-sub">All check-in and check-out records</div>
+      </div>
+      <select id="timesheetFilter" onchange="renderTimesheet()" style="padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;font-family:'Inter',sans-serif">
+        <option value="all">All people</option>
+      </select>
+    </div>
+    <div class="card">
+      <div id="timesheetContent"></div>
+    </div>
+    <div class="locked-notice" id="adminEditNotice" style="display:none">✏️ Admin: tap any row to edit or delete a record.</div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="screen-reports" class="screen">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Reports</div>
+        <div class="section-sub">Monthly hours and profit split</div>
+      </div>
+      <select id="reportMonth" onchange="renderReports()" style="padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;font-family:'Inter',sans-serif"></select>
+    </div>
+    <div class="card">
+      <div class="card-title">Hours attended</div>
+      <div id="hoursBreakdown"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Profit split calculator</div>
+      <div class="grid2" style="margin-bottom:16px">
+        <div class="input-group" style="margin:0">
+          <label>Total profit this month ($)</label>
+          <input type="number" id="profitInput" class="profit-input" placeholder="0" oninput="calcSplit()">
+        </div>
+        <div class="input-group" style="margin:0">
+          <label>Attendance pool (%)</label>
+          <input type="number" id="poolPct" class="profit-input" placeholder="20" value="20" min="0" max="100" oninput="calcSplit()">
+        </div>
+      </div>
+      <div id="splitResult"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="screen-settings" class="screen">
+    <div class="section-head">
+      <div>
+        <div class="section-title">Settings</div>
+        <div class="section-sub">Admin only</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Connect Google Sheets</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+        Paste your Google Apps Script Web App URL below. Data will sync automatically after connecting.
+      </div>
+      <div class="input-group">
+        <label>Apps Script URL</label>
+        <input type="url" id="sheetsUrl" class="url-input" placeholder="https://script.google.com/macros/s/...">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-accent btn-sm" onclick="saveUrl()">Save & Test</button>
+        <button class="btn btn-sm" onclick="clearUrl()">Disconnect</button>
+      </div>
+      <div id="urlStatus" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Team members</div>
+      <div id="peopleList"></div>
+      <button class="btn btn-sm" style="margin-top:14px" onclick="openAddPerson()">+ Add person</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">PINs</div>
+      <div class="input-group">
+        <label>Partner PIN (shared — Nael, Rami, Loay)</label>
+        <input type="password" id="partnerPinInput" placeholder="4-digit PIN" maxlength="4" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>Admin PIN (only you)</label>
+        <input type="password" id="adminPinInput" placeholder="4-digit PIN" maxlength="4" autocomplete="off">
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="savePins()">Save PINs</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Shift rotation</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+        Set who opens on a specific date — the rotation cycles automatically from there.
+      </div>
+      <div class="grid2">
+        <div class="input-group" style="margin:0">
+          <label>Anchor date</label>
+          <input type="date" id="anchorDate" onchange="saveAnchor()">
+        </div>
+        <div class="input-group" style="margin:0">
+          <label>Who opens on that date</label>
+          <select id="anchorPerson" onchange="saveAnchor()"></select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:4px;display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="doLogout()">🔒 Lock app</button>
+      <button class="btn btn-sm btn-danger" onclick="exportData()">⬇ Export data</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- CHECK-IN MODAL -->
+<div class="modal-overlay" id="checkinModal">
+  <div class="modal">
+    <h3 id="checkinTitle"></h3>
+    <div id="checkinStatus" style="font-size:13px;color:var(--text2);margin-bottom:4px"></div>
+    <div class="divider"></div>
+    <div class="input-group">
+      <label id="checkinTimeLabel">Time</label>
+      <input type="time" id="checkinTime">
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:-8px">You can adjust the time if you forgot to check in on time.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('checkinModal')">Cancel</button>
+      <button class="btn btn-accent" id="checkinConfirmBtn" onclick="confirmCheckin()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PERSON MODAL -->
+<div class="modal-overlay" id="addPersonModal">
+  <div class="modal">
+    <h3>Add person</h3>
+    <div class="input-group"><label>Name</label><input type="text" id="newPersonName" placeholder="Full name"></div>
+    <div class="input-group"><label>Role</label>
+      <select id="newPersonRole">
+        <option value="partner">Partner</option>
+        <option value="employee">Employee</option>
+      </select>
+    </div>
+    <div class="input-group"><label>Color</label>
+      <select id="newPersonColor">
+        <option value="accent">Yellow (default)</option>
+        <option value="purple">Purple</option>
+        <option value="blue">Blue</option>
+        <option value="green">Green</option>
+        <option value="red">Red</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addPersonModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmAddPerson()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT RECORD MODAL (admin) -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="editTitle">Edit record</h3>
+    <div class="input-group"><label>Check-in time</label><input type="time" id="editIn"></div>
+    <div class="input-group"><label>Check-out time (leave empty if still in)</label><input type="time" id="editOut"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord()">Delete</button>
+      <button class="btn" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let S = {
+  people: [
+    { id: 'nael', name: 'Nael', role: 'partner', color: 'accent' },
+    { id: 'rami', name: 'Rami', role: 'partner', color: 'purple' },
+    { id: 'loay', name: 'Loay', role: 'partner', color: 'blue' }
+  ],
+  records: [],          // { id, personId, date, checkIn, checkOut }
+  unavailable: {},      // { "2025-01-15": ["nael"] }
+  partnerPin: '1961',
+  adminPin: '0000',
+  anchor: { date: null, personIdx: 0 },
+  sheetsUrl: ''
+};
+
+let currentUser = null;
+let pinBuffer = '';
+let editingRecordId = null;
+let currentCheckinPersonId = null;
+let weekOffset = 0;
+let syncing = false;
+
+// ─── PERSIST ──────────────────────────────────────────────────────────────────
+function saveLocal() {
+  try { localStorage.setItem('z961_v2', JSON.stringify(S)); } catch(e) {}
+}
+function loadLocal() {
+  try {
+    const d = localStorage.getItem('z961_v2');
+    if (d) Object.assign(S, JSON.parse(d));
+  } catch(e) {}
+  if (!S.anchor.date) S.anchor.date = fmtDate(new Date());
+}
+
+// ─── SHEETS API ───────────────────────────────────────────────────────────────
+async function sheetsCall(params) {
+  if (!S.sheetsUrl) return null;
+  try {
+    const url = S.sheetsUrl + '?action=' + params.action;
+    const res = await fetch(S.sheetsUrl, {
+      method: 'POST',
+      body: JSON.stringify(params),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    return await res.json();
+  } catch(e) { return null; }
+}
+
+async function syncToSheets() {
+  if (!S.sheetsUrl || syncing) return;
+  syncing = true;
+  const config = { ...S };
+  delete config.records; // records stored separately
+  const r = await sheetsCall({ action: 'saveState', state: config });
+  syncing = false;
+  showSyncBadge(r && r.ok);
+}
+
+async function pullFromSheets() {
+  if (!S.sheetsUrl) return false;
+  showLoader('Syncing with Google Sheets...');
+  try {
+    const [stateRes, recordsRes] = await Promise.all([
+      sheetsCall({ action: 'getState' }),
+      sheetsCall({ action: 'getRecords' })
+    ]);
+    if (stateRes && stateRes.state) {
+      Object.assign(S, stateRes.state);
+    }
+    if (recordsRes && recordsRes.records) {
+      S.records = recordsRes.records;
+    }
+    saveLocal();
+    hideLoader();
+    return true;
+  } catch(e) {
+    hideLoader();
+    return false;
+  }
+}
+
+async function addRecordSheets(record) {
+  const r = await sheetsCall({ action: 'addRecord', record });
+  return r && r.id ? r.id : null;
+}
+
+async function updateRecordSheets(id, record) {
+  await sheetsCall({ action: 'updateRecord', idx: id, record });
+}
+
+async function deleteRecordSheets(id) {
+  await sheetsCall({ action: 'deleteRecord', idx: id });
+}
+
+function showSyncBadge(ok) {
+  const b = document.getElementById('syncBadge');
+  b.style.display = '';
+  if (ok) {
+    b.className = 'sync-badge';
+    b.textContent = '● Synced';
+  } else {
+    b.className = 'sync-badge error';
+    b.textContent = '● Offline';
+  }
+  setTimeout(() => { b.style.display = 'none'; }, 3000);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function fmtDate(d) { return d.toLocaleDateString('en-CA'); }
+function fmtTime(d) { return d.toTimeString().slice(0,5); }
+function parseDate(s) { const [y,m,dd] = s.split('-'); return new Date(+y, +m-1, +dd); }
+function dayDiff(d1, d2) { return Math.round((d2 - d1) / 86400000); }
+function getDayName(s) { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseDate(s).getDay()]; }
+function getFullDayName(s) { return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseDate(s).getDay()]; }
+function fmtDateDisplay(s) { return parseDate(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function showLoader(msg) { document.getElementById('loaderMsg').textContent = msg || 'Loading...'; document.getElementById('loader').classList.add('show'); }
+function hideLoader() { document.getElementById('loader').classList.remove('show'); }
+
+function colorVar(colorName) {
+  const map = { accent:'var(--accent)', purple:'var(--purple)', blue:'var(--blue)', green:'var(--green)', red:'var(--red)' };
+  return map[colorName] || 'var(--accent)';
+}
+function colorDim(colorName) {
+  const map = { accent:'var(--accent-dim)', purple:'var(--purple-dim)', blue:'var(--blue-dim)', green:'var(--green-dim)', red:'var(--red-dim)' };
+  return map[colorName] || 'var(--accent-dim)';
+}
+function colorText(colorName) {
+  const map = { accent:'var(--accent-text)', purple:'var(--purple)', blue:'var(--blue)', green:'var(--green)', red:'var(--red)' };
+  return map[colorName] || 'var(--accent-text)';
+}
+
+// ─── SHIFT LOGIC ─────────────────────────────────────────────────────────────
+function getShift(dateStr) {
+  const anchor = parseDate(S.anchor.date);
+  const target = parseDate(dateStr);
+  const diff = dayDiff(anchor, target);
+  const n = S.people.length;
+  if (n === 0) return { opener: -1, second: -1, off: -1 };
+  const op = ((S.anchor.personIdx + diff) % n + n) % n;
+  return { opener: op, second: (op + 1) % n, off: (op + 2) % n };
+}
+
+function isNA(personId, dateStr) {
+  return (S.unavailable[dateStr] || []).includes(personId);
+}
+
+function toggleNA(personId, dateStr) {
+  if (!S.unavailable[dateStr]) S.unavailable[dateStr] = [];
+  const arr = S.unavailable[dateStr];
+  const i = arr.indexOf(personId);
+  if (i >= 0) arr.splice(i, 1); else arr.push(personId);
+  saveLocal();
+  syncToSheets();
+  renderSchedule();
+}
+
+// ─── PIN ─────────────────────────────────────────────────────────────────────
+function pinPress(k) {
+  const err = document.getElementById('pinError');
+  if (k === 'clear') { pinBuffer = ''; updatePinDots(); return; }
+  if (k === 'del') { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); return; }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(checkPin, 120);
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('pd'+i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+async function checkPin() {
+  const err = document.getElementById('pinError');
+  if (pinBuffer === S.adminPin) {
+    currentUser = 'admin';
+    await bootApp();
+  } else if (pinBuffer === S.partnerPin) {
+    currentUser = 'partner';
+    await bootApp();
+  } else {
+    err.textContent = 'Wrong PIN. Try again.';
+    pinBuffer = '';
+    updatePinDots();
+    setTimeout(() => { err.textContent = ''; }, 2500);
+  }
+}
+
+async function bootApp() {
+  document.getElementById('pinScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('roleTag').textContent = currentUser === 'admin' ? 'Admin' : 'Partner';
+  document.getElementById('settingsNavBtn').style.display = currentUser === 'admin' ? '' : 'none';
+  document.getElementById('adminEditNotice').style.display = currentUser === 'admin' ? 'flex' : 'none';
+
+  if (S.sheetsUrl) {
+    await pullFromSheets();
+    if (!S.sheetsUrl) document.getElementById('setupBanner').style.display = 'block';
+  } else {
+    document.getElementById('setupBanner').style.display = 'block';
+  }
+
+  startClock();
+  populateSelectors();
+  renderAll();
+}
+
+function doLogout() {
+  currentUser = null; pinBuffer = '';
+  document.getElementById('pinScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+  updatePinDots();
+}
+
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    const now = new Date();
+    const el = document.getElementById('headerTime');
+    if (el) el.textContent = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+  }
+  tick(); setInterval(tick, 10000);
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  const names = ['today', 'schedule', 'timesheet', 'reports', 'settings'];
+  const btns = document.querySelectorAll('.nav button');
+  const idx = names.indexOf(id);
+  if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+  if (id === 'reports') renderReports();
+}
+
+function renderAll() {
+  renderToday(); renderSchedule(); renderTimesheet();
+  populateReportMonths(); renderReports();
+  if (currentUser === 'admin') renderSettings();
+}
+
+// ─── TODAY ────────────────────────────────────────────────────────────────────
+function renderToday() {
+  const today = fmtDate(new Date());
+  const now = new Date();
+  document.getElementById('todayTitle').textContent =
+    getFullDayName(today) + ', ' + now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+  const shift = getShift(today);
+  const container = document.getElementById('todayCards');
+  container.innerHTML = '';
+
+  S.people.forEach((p, idx) => {
+    const recs = S.records.filter(r => r.personId === p.id && r.date === today);
+    const last = recs[recs.length - 1];
+    const isIn = last && last.checkIn && !last.checkOut;
+    const na = isNA(p.id, today);
+    const isOpener = idx === shift.opener;
+    const isSecond = idx === shift.second;
+    const isOff = idx === shift.off;
+
+    let shiftTag = '';
+    if (na) shiftTag = '<span class="shift-tag shift-na">Not available</span>';
+    else if (isOpener) shiftTag = '<span class="shift-tag shift-opener">Opens ~3 PM</span>';
+    else if (isSecond) shiftTag = '<span class="shift-tag shift-second">Joins ~8 PM</span>';
+    else if (isOff) shiftTag = '<span class="shift-tag shift-off">Off today</span>';
+
+    let statusHtml = '';
+    if (isIn) {
+      statusHtml = `<span class="badge badge-green"><span class="dot"></span>In since ${last.checkIn}</span>`;
+    } else if (last && last.checkOut) {
+      statusHtml = `<span class="badge badge-gray"><span class="dot"></span>Done ${last.checkOut}</span>`;
+    } else {
+      statusHtml = `<span class="badge badge-gray"><span class="dot"></span>Not in yet</span>`;
+    }
+
+    const btnClass = isIn ? 'checkin-btn out-btn' : 'checkin-btn in-btn';
+    const btnTxt = isIn ? 'Check out' : 'Check in';
+    const initials = p.name.slice(0,2).toUpperCase();
+
+    const div = document.createElement('div');
+    div.className = 'person-card';
+    div.innerHTML = `
+      <div class="person-avatar" style="background:${colorDim(p.color)};color:${colorText(p.color)}">${initials}</div>
+      <div class="person-name">${p.name}</div>
+      <div class="person-role-text">${p.role}</div>
+      <div style="margin-bottom:8px">${shiftTag}</div>
+      ${statusHtml}
+      <button class="${btnClass}" onclick="openCheckin('${p.id}')">${btnTxt}</button>`;
+    container.appendChild(div);
+  });
+
+  // Shift summary
+  const summary = document.getElementById('shiftSummary');
+  if (S.people.length < 1) { summary.innerHTML = '<div class="empty-state">No people added yet.</div>'; return; }
+  const opener = S.people[shift.opener];
+  const second = S.people[shift.second];
+  const off = S.people[shift.off];
+  summary.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">Opens (~3 PM)</span>
+        <strong style="color:${opener ? colorText(opener.color) : 'var(--text)'}">${opener ? opener.name : '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">Joins (~8 PM)</span>
+        <strong style="color:${second ? colorText(second.color) : 'var(--text)'}">${second ? second.name : '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">Off today</span>
+        <strong style="color:var(--text3)">${off ? off.name : '—'}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">Closing time</span>
+        <strong>When last customer leaves</strong>
+      </div>
+    </div>`;
+}
+
+// ─── CHECK-IN ─────────────────────────────────────────────────────────────────
+function openCheckin(personId) {
+  currentCheckinPersonId = personId;
+  const person = S.people.find(p => p.id === personId);
+  const today = fmtDate(new Date());
+  const recs = S.records.filter(r => r.personId === personId && r.date === today);
+  const last = recs[recs.length - 1];
+  const isIn = last && last.checkIn && !last.checkOut;
+  const now = fmtTime(new Date());
+
+  document.getElementById('checkinTitle').textContent = isIn ? `Check out — ${person.name}` : `Check in — ${person.name}`;
+  document.getElementById('checkinStatus').textContent = isIn
+    ? `Currently checked in since ${last.checkIn}`
+    : 'Not currently checked in';
+  document.getElementById('checkinTimeLabel').textContent = isIn ? 'Check-out time' : 'Check-in time';
+  document.getElementById('checkinTime').value = now;
+  document.getElementById('checkinConfirmBtn').textContent = isIn ? 'Check out' : 'Check in';
+  document.getElementById('checkinModal').classList.add('open');
+}
+
+async function confirmCheckin() {
+  const personId = currentCheckinPersonId;
+  const today = fmtDate(new Date());
+  const recs = S.records.filter(r => r.personId === personId && r.date === today);
+  const last = recs[recs.length - 1];
+  const isIn = last && last.checkIn && !last.checkOut;
+  const time = document.getElementById('checkinTime').value;
+  if (!time) return;
+
+  closeModal('checkinModal');
+  showLoader('Saving...');
+
+  if (isIn) {
+    last.checkOut = time;
+    if (S.sheetsUrl) await updateRecordSheets(last.id, last);
+  } else {
+    const rec = { id: uid(), personId, date: today, checkIn: time, checkOut: null };
+    if (S.sheetsUrl) {
+      const remoteId = await addRecordSheets(rec);
+      if (remoteId) rec.id = remoteId;
+    }
+    S.records.push(rec);
+  }
+
+  saveLocal();
+  hideLoader();
+  renderToday();
+  renderTimesheet();
+}
+
+// ─── SCHEDULE ─────────────────────────────────────────────────────────────────
+function renderSchedule() {
+  const n = S.people.length;
+  const header = document.getElementById('scheduleHeader');
+  header.style.setProperty('--cols', Math.min(n, 3));
+  header.innerHTML = '<div style="font-size:11px;color:var(--text3)">Date</div>' +
+    S.people.slice(0,3).map(p =>
+      `<div style="font-size:12px;font-weight:500;color:${colorText(p.color)}">${p.name}</div>`
+    ).join('');
+
+  const today = new Date();
+  today.setDate(today.getDate() + weekOffset * 7);
+  const start = new Date(today);
+  start.setDate(today.getDate() - today.getDay());
+  const todayStr = fmtDate(new Date());
+
+  const container = document.getElementById('scheduleRows');
+  container.innerHTML = '';
+  container.style.setProperty('--cols', Math.min(n, 3));
+
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const dateStr = fmtDate(d);
+    const isPast = dateStr < todayStr;
+    const isToday = dateStr === todayStr;
+    const shift = getShift(dateStr);
+
+    const row = document.createElement('div');
+    row.className = 'schedule-row' + (isToday ? ' today-row' : '');
+    row.style.setProperty('--cols', Math.min(n, 3));
+
+    const dateCell = document.createElement('div');
+    dateCell.innerHTML = `<div style="font-size:13px;font-weight:500;color:${isToday ? 'var(--accent)' : 'var(--text)'}">${getDayName(dateStr)}</div>
+      <div style="font-size:11px;color:var(--text3)">${fmtDateDisplay(dateStr)}</div>`;
+    row.appendChild(dateCell);
+
+    S.people.slice(0,3).forEach((p, idx) => {
+      const cell = document.createElement('div');
+      const na = isNA(p.id, dateStr);
+      let tag = '';
+      if (na) tag = '<span class="shift-tag shift-na">N/A</span>';
+      else if (idx === shift.opener) tag = '<span class="shift-tag shift-opener">Opens</span>';
+      else if (idx === shift.second) tag = '<span class="shift-tag shift-second">8 PM</span>';
+      else tag = '<span class="shift-tag shift-off">Off</span>';
+
+      let btn = '';
+      if (!isPast) {
+        btn = `<button class="avail-btn${na ? ' na' : ''}" onclick="toggleNA('${p.id}','${dateStr}')">${na ? 'Mark available' : 'Mark N/A'}</button>`;
+      }
+      cell.innerHTML = `<div style="display:flex;flex-direction:column;gap:5px">${tag}${btn}</div>`;
+      row.appendChild(cell);
+    });
+
+    container.appendChild(row);
+  }
+}
+
+function changeWeek(dir) { weekOffset += dir; renderSchedule(); }
+
+// ─── TIMESHEET ───────────────────────────────────────────────────────────────
+function renderTimesheet() {
+  const filter = document.getElementById('timesheetFilter').value;
+  const content = document.getElementById('timesheetContent');
+  const isAdmin = currentUser === 'admin';
+
+  let recs = [...S.records].sort((a, b) =>
+    b.date.localeCompare(a.date) || (b.checkIn||'').localeCompare(a.checkIn||'')
+  );
+  if (filter !== 'all') recs = recs.filter(r => r.personId === filter);
+
+  if (!recs.length) {
+    content.innerHTML = '<div class="empty-state">No records yet.<br>Check in to start tracking.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Date</th><th>Person</th><th>Check in</th><th>Check out</th><th>Hours</th>
+    ${isAdmin ? '<th></th>' : ''}
+  </tr></thead><tbody>`;
+
+  recs.forEach(r => {
+    const person = S.people.find(p => p.id === r.personId);
+    const name = person ? person.name : r.personId;
+    const color = person ? colorText(person.color) : 'var(--text)';
+    let hrs = '—';
+    if (r.checkIn && r.checkOut) {
+      const [ih,im] = r.checkIn.split(':').map(Number);
+      const [oh,om] = r.checkOut.split(':').map(Number);
+      let m = (oh*60+om) - (ih*60+im);
+      if (m < 0) m += 1440;
+      hrs = (m/60).toFixed(1) + 'h';
+    }
+    const stillIn = r.checkIn && !r.checkOut;
+    html += `<tr class="${isAdmin ? 'clickable' : ''}" ${isAdmin ? `onclick="openEdit('${r.id}')"` : ''}>
+      <td>${fmtDateDisplay(r.date)}</td>
+      <td style="color:${color};font-weight:500">${name}</td>
+      <td>${r.checkIn || '—'}</td>
+      <td>${stillIn ? '<span style="color:var(--amber)">Still in</span>' : (r.checkOut || '—')}</td>
+      <td>${hrs}</td>
+      ${isAdmin ? `<td style="color:var(--text3);font-size:12px">edit</td>` : ''}
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  content.innerHTML = html;
+}
+
+// ─── EDIT RECORD ──────────────────────────────────────────────────────────────
+function openEdit(recordId) {
+  if (currentUser !== 'admin') return;
+  editingRecordId = recordId;
+  const r = S.records.find(rec => rec.id === recordId);
+  if (!r) return;
+  const person = S.people.find(p => p.id === r.personId);
+  document.getElementById('editTitle').textContent = `Edit — ${person ? person.name : r.personId} · ${fmtDateDisplay(r.date)}`;
+  document.getElementById('editIn').value = r.checkIn || '';
+  document.getElementById('editOut').value = r.checkOut || '';
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function saveEdit() {
+  if (!editingRecordId) return;
+  const r = S.records.find(rec => rec.id === editingRecordId);
+  if (!r) return;
+  r.checkIn = document.getElementById('editIn').value;
+  r.checkOut = document.getElementById('editOut').value || null;
+  closeModal('editModal');
+  showLoader('Saving...');
+  if (S.sheetsUrl) await updateRecordSheets(r.id, r);
+  saveLocal();
+  hideLoader();
+  renderTimesheet(); renderToday();
+}
+
+async function confirmDeleteRecord() {
+  if (!editingRecordId) return;
+  if (!confirm('Delete this record?')) return;
+  const idx = S.records.findIndex(r => r.id === editingRecordId);
+  if (idx < 0) return;
+  closeModal('editModal');
+  showLoader('Deleting...');
+  if (S.sheetsUrl) await deleteRecordSheets(editingRecordId);
+  S.records.splice(idx, 1);
+  saveLocal();
+  hideLoader();
+  renderTimesheet(); renderToday();
+}
+
+// ─── REPORTS ─────────────────────────────────────────────────────────────────
+function populateReportMonths() {
+  const sel = document.getElementById('reportMonth');
+  sel.innerHTML = '';
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = fmtDate(d).slice(0,7);
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    sel.innerHTML += `<option value="${val}">${label}</option>`;
+  }
+}
+
+function totalHours(personId, month) {
+  return S.records
+    .filter(r => r.personId === personId && r.date.startsWith(month) && r.checkIn && r.checkOut)
+    .reduce((sum, r) => {
+      const [ih,im] = r.checkIn.split(':').map(Number);
+      const [oh,om] = r.checkOut.split(':').map(Number);
+      let m = (oh*60+om) - (ih*60+im);
+      if (m < 0) m += 1440;
+      return sum + m/60;
+    }, 0);
+}
+
+function renderReports() {
+  const month = document.getElementById('reportMonth').value;
+  if (!month) return;
+  const data = S.people.map(p => ({ p, hrs: totalHours(p.id, month) }));
+  const maxHrs = Math.max(...data.map(d => d.hrs), 1);
+
+  document.getElementById('hoursBreakdown').innerHTML = data.map(({p, hrs}) => `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+        <span style="font-weight:500;color:${colorText(p.color)}">${p.name}</span>
+        <span style="font-size:13px;color:var(--text2)">${hrs.toFixed(1)} hours</span>
+      </div>
+      <div class="hours-bar">
+        <div class="hours-fill" style="width:${(hrs/maxHrs*100).toFixed(0)}%;background:${colorVar(p.color)}"></div>
+      </div>
+    </div>`).join('');
+
+  calcSplit();
+}
+
+function calcSplit() {
+  const month = document.getElementById('reportMonth').value;
+  const profit = parseFloat(document.getElementById('profitInput').value) || 0;
+  const poolPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('poolPct').value) || 20));
+  const result = document.getElementById('splitResult');
+
+  if (!profit) {
+    result.innerHTML = '<div style="font-size:13px;color:var(--text3)">Enter the total profit above to see each person\'s share.</div>';
+    return;
+  }
+
+  const basePool = profit * (1 - poolPct/100);
+  const attendPool = profit * (poolPct/100);
+  const totals = S.people.map(p => ({ p, hrs: totalHours(p.id, month) }));
+  const totalHrs = totals.reduce((a,b) => a + b.hrs, 0);
+  const n = S.people.length || 1;
+
+  result.innerHTML = `<div class="grid3" style="margin-bottom:12px">
+    ${totals.map(({p, hrs}) => {
+      const base = basePool / n;
+      const attend = totalHrs > 0 ? (hrs / totalHrs) * attendPool : attendPool / n;
+      const total = base + attend;
+      return `<div class="split-card">
+        <div class="split-name" style="color:${colorText(p.color)}">${p.name}</div>
+        <div class="split-amount">$${Math.round(total)}</div>
+        <div class="split-detail">Base $${Math.round(base)} + Hours $${Math.round(attend)}</div>
+        <div class="split-detail" style="margin-top:3px">${hrs.toFixed(1)}h · ${totalHrs > 0 ? Math.round(hrs/totalHrs*100) : 0}% of hours</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="font-size:11px;color:var(--text3)">
+    ${(100-poolPct).toFixed(0)}% split equally ($${Math.round(basePool)}) + ${poolPct.toFixed(0)}% split by hours ($${Math.round(attendPool)}) = $${Math.round(profit)} total
+  </div>`;
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+function renderSettings() {
+  document.getElementById('sheetsUrl').value = S.sheetsUrl || '';
+  document.getElementById('anchorDate').value = S.anchor.date || fmtDate(new Date());
+  const ap = document.getElementById('anchorPerson');
+  ap.innerHTML = S.people.map((p,i) => `<option value="${i}">${p.name}</option>`).join('');
+  ap.value = S.anchor.personIdx || 0;
+
+  const list = document.getElementById('peopleList');
+  list.innerHTML = S.people.length ? S.people.map((p,i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:34px;height:34px;border-radius:50%;background:${colorDim(p.color)};color:${colorText(p.color)};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">
+          ${p.name.slice(0,2).toUpperCase()}
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:500">${p.name}</div>
+          <div style="font-size:12px;color:var(--text3)">${p.role}</div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="removePerson(${i})">Remove</button>
+    </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3)">No people yet.</div>';
+}
+
+function openAddPerson() { document.getElementById('addPersonModal').classList.add('open'); }
+
+function confirmAddPerson() {
+  const name = document.getElementById('newPersonName').value.trim();
+  if (!name) return;
+  const role = document.getElementById('newPersonRole').value;
+  const color = document.getElementById('newPersonColor').value;
+  const id = name.toLowerCase().replace(/\s+/g,'_') + '_' + uid();
+  S.people.push({ id, name, role, color });
+  saveLocal(); syncToSheets();
+  closeModal('addPersonModal');
+  document.getElementById('newPersonName').value = '';
+  renderSettings(); populateSelectors(); renderToday(); renderSchedule();
+}
+
+function removePerson(idx) {
+  if (!confirm('Remove ' + S.people[idx].name + '? Their records will stay.')) return;
+  S.people.splice(idx, 1);
+  saveLocal(); syncToSheets();
+  renderSettings(); populateSelectors(); renderToday(); renderSchedule();
+}
+
+function savePins() {
+  const pp = document.getElementById('partnerPinInput').value;
+  const ap = document.getElementById('adminPinInput').value;
+  if (pp && !/^\d{4}$/.test(pp)) { alert('PIN must be exactly 4 digits.'); return; }
+  if (ap && !/^\d{4}$/.test(ap)) { alert('PIN must be exactly 4 digits.'); return; }
+  if (pp) S.partnerPin = pp;
+  if (ap) S.adminPin = ap;
+  document.getElementById('partnerPinInput').value = '';
+  document.getElementById('adminPinInput').value = '';
+  saveLocal(); syncToSheets();
+  alert('PINs saved.');
+}
+
+function saveAnchor() {
+  S.anchor.date = document.getElementById('anchorDate').value;
+  S.anchor.personIdx = parseInt(document.getElementById('anchorPerson').value) || 0;
+  saveLocal(); syncToSheets();
+  renderSchedule(); renderToday();
+}
+
+async function saveUrl() {
+  const url = document.getElementById('sheetsUrl').value.trim();
+  const status = document.getElementById('urlStatus');
+  if (!url) { status.textContent = 'Enter a URL first.'; return; }
+  S.sheetsUrl = url;
+  saveLocal();
+  status.textContent = 'Testing connection...';
+  const r = await sheetsCall({ action: 'getState' });
+  if (r && !r.error) {
+    status.innerHTML = '<span style="color:var(--green)">✓ Connected successfully! Data will now sync.</span>';
+    document.getElementById('setupBanner').style.display = 'none';
+    await pullFromSheets();
+    renderAll();
+  } else {
+    status.innerHTML = '<span style="color:var(--red)">✗ Could not connect. Check the URL and try again.</span>';
+    S.sheetsUrl = '';
+    saveLocal();
+  }
+}
+
+function clearUrl() {
+  S.sheetsUrl = '';
+  document.getElementById('sheetsUrl').value = '';
+  document.getElementById('urlStatus').textContent = 'Disconnected.';
+  document.getElementById('setupBanner').style.display = 'block';
+  saveLocal();
+}
+
+function exportData() {
+  const data = { ...S, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'zone961_backup_' + fmtDate(new Date()) + '.json';
+  a.click();
+}
+
+function populateSelectors() {
+  const tf = document.getElementById('timesheetFilter');
+  tf.innerHTML = '<option value="all">All people</option>' +
+    S.people.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadLocal();
+</script>
+</body>
+</html>
