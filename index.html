@@ -643,9 +643,6 @@ const DS_COLOR={
 function saveLocal(){try{localStorage.setItem('z961_v3',JSON.stringify(S));}catch(e){}}
 function loadLocal(){
   try{const d=localStorage.getItem('z961_v3');if(d)Object.assign(S,JSON.parse(d));}catch(e){}
-  // restore session if page was refreshed
-  try{const u=sessionStorage.getItem('z961_user');if(u){currentUser=u;}}catch(e){}
-  migrateRecords();
 }
 function migrateRecords(){
   // Fix old records that stored full ISO timestamps instead of HH:MM / YYYY-MM-DD
@@ -699,6 +696,9 @@ async function pullFromSheets(){
     if(rr&&rr.records)S.records=rr.records;
     if(!S.overrides)S.overrides={};
     if(!S.notes)S.notes={};
+    if(!S.payments)S.payments=[];
+    if(!S.savedReports)S.savedReports=[];
+    migrateRecords(); // fix any old-format records from sheets
     saveLocal();hideLoader();return true;
   }catch(e){hideLoader();return false;}
 }
@@ -1613,14 +1613,16 @@ function populateSelectors(){
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-loadLocal();
-initReportMonth();
-// check for existing session (page refresh)
-(function(){
+loadLocal();        // load data from localStorage (fmtDate etc. all defined by now)
+migrateRecords();   // fix any old-format records (fmtDate/fmtTime now available)
+initReportMonth();  // populate month selector
+// restore session on page refresh — keep user logged in
+(async function(){
   try{
     const u=sessionStorage.getItem('z961_user');
-    if(u){currentUser=u;bootApp();}
+    if(u){currentUser=u;await bootApp();return;}
   }catch(e){}
+  // no session — show PIN screen (already visible by default)
 })();
 </script>
 </body>
