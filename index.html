@@ -460,6 +460,13 @@ select option{background:var(--surface2);}
     <div id="checkinStatus" style="font-size:13px;color:var(--text2);margin-bottom:4px"></div>
     <div class="divider"></div>
     <div class="ig"><label id="checkinTimeLabel">Time</label><input type="time" id="checkinTime"></div>
+    <div class="ig" id="checkinNextDayWrap" style="display:none">
+      <label>Checking out next day?</label>
+      <select id="checkinNextDay" style="padding:9px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;font-family:'Inter',sans-serif">
+        <option value="0">No — same day</option>
+        <option value="1">Yes — next day (overnight)</option>
+      </select>
+    </div>
     <div style="font-size:12px;color:var(--text3);margin-top:-8px">You can adjust the time if you forgot to check in on time.</div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('checkinModal')">Cancel</button>
@@ -538,7 +545,13 @@ select option{background:var(--surface2);}
   <div class="modal">
     <h3 id="editTitle">Edit record</h3>
     <div class="ig"><label>Check-in time</label><input type="time" id="editIn"></div>
-    <div class="ig"><label>Check-out time (leave empty if still in)</label><input type="time" id="editOut"></div>
+    <div class="ig" style="display:flex;gap:10px;align-items:flex-end">
+      <div style="flex:1"><label>Check-out time (leave empty if still in)</label><input type="time" id="editOut"></div>
+      <div><label>Next day?</label><select id="editOutNextDay" style="padding:9px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;font-family:'Inter',sans-serif">
+        <option value="0">Same day</option>
+        <option value="1">Next day</option>
+      </select></div>
+    </div>
     <div class="ig"><label>Note (optional)</label><input type="text" id="editNote" placeholder="e.g. Left early, Late arrival..."></div>
     <div class="modal-actions">
       <button class="btn btn-danger btn-sm" onclick="confirmDeleteRecord()">Delete</button>
@@ -707,6 +720,16 @@ function showSyncBadge(ok){
 // ── UTILS ─────────────────────────────────────────────────────────────────
 function fmtDate(d){return d.toLocaleDateString('en-CA');}
 function fmtTime(d){return d.toTimeString().slice(0,5);}
+function normalizeTime(t){
+  // Ensure HH:MM format for input[type=time] — pads single digit hours
+  if(!t)return '';
+  const parts=t.split(':');
+  if(parts.length<2)return t;
+  return parts[0].padStart(2,'0')+':'+parts[1].padStart(2,'0');
+}
+function nextDay(dateStr){
+  const d=parseDate(dateStr);d.setDate(d.getDate()+1);return fmtDate(d);
+}
 function parseDate(s){const[y,m,dd]=s.split('-');return new Date(+y,+m-1,+dd);}
 function dayDiff(d1,d2){return Math.round((d2-d1)/86400000);}
 function getDayShort(s){return['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseDate(s).getDay()];}
@@ -912,6 +935,9 @@ function openCheckin(personId){
   document.getElementById('checkinStatus').textContent=isIn?`Currently in since ${last.checkIn}`:'Not currently checked in';
   document.getElementById('checkinTimeLabel').textContent=isIn?'Check-out time':'Check-in time';
   document.getElementById('checkinTime').value=fmtTime(new Date());
+  const ndWrap=document.getElementById('checkinNextDayWrap');
+  ndWrap.style.display=isIn?'':'none'; // only show on checkout
+  document.getElementById('checkinNextDay').value='0';
   document.getElementById('checkinConfirmBtn').textContent=isIn?'Check out':'Check in';
   document.getElementById('checkinModal').classList.add('open');
 }
@@ -926,9 +952,10 @@ async function confirmCheckin(){
   closeModal('checkinModal');showLoader('Saving...');
   if(isIn){
     last.checkOut=time;
+    last.checkOutNextDay=document.getElementById('checkinNextDay').value==='1';
     if(S.sheetsUrl)await updateRecordSheets(last.id,last);
   }else{
-    const rec={id:uid(),personId,date:today,checkIn:time,checkOut:null};
+    const rec={id:uid(),personId,date:today,checkIn:time,checkOut:null,checkOutNextDay:false};
     if(S.sheetsUrl){const rid=await addRecordSheets(rec);if(rid)rec.id=rid;}
     S.records.push(rec);
   }
@@ -1159,8 +1186,8 @@ function renderTimesheet(){
     const pc=person?pColor(person):null;
     let hrs='—';
     if(r.checkIn&&r.checkOut){
-      const[ih,im]=r.checkIn.split(':').map(Number);const[oh,om]=r.checkOut.split(':').map(Number);
-      let m=(oh*60+om)-(ih*60+im);if(m<0)m+=1440;hrs=(m/60).toFixed(1)+'h';
+      hrs=(calcMinutes(r)/60).toFixed(1)+'h';
+      if(r.checkOutNextDay)hrs+=' 🌙';
     }
     const stillIn=r.checkIn&&!r.checkOut;
     const noteHtml=r.note?`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--amber-dim);color:var(--amber)">${r.note}</span>`:'—';
@@ -1185,8 +1212,9 @@ function openEdit(recordId){
   const r=S.records.find(rec=>rec.id===recordId);if(!r)return;
   const person=S.people.find(p=>p.id===r.personId);
   document.getElementById('editTitle').textContent=`Edit — ${person?person.name:r.personId} · ${fmtShort(r.date)}`;
-  document.getElementById('editIn').value=r.checkIn||'';
-  document.getElementById('editOut').value=r.checkOut||'';
+  document.getElementById('editIn').value=normalizeTime(r.checkIn)||'';
+  document.getElementById('editOut').value=normalizeTime(r.checkOut)||'';
+  document.getElementById('editOutNextDay').value=r.checkOutNextDay?'1':'0';
   document.getElementById('editNote').value=r.note||'';
   document.getElementById('editModal').classList.add('open');
 }
@@ -1195,6 +1223,7 @@ async function saveEdit(){
   const r=S.records.find(rec=>rec.id===editingRecordId);if(!r)return;
   r.checkIn=document.getElementById('editIn').value;
   r.checkOut=document.getElementById('editOut').value||null;
+  r.checkOutNextDay=document.getElementById('editOutNextDay').value==='1';
   r.note=document.getElementById('editNote').value.trim()||null;
   closeModal('editModal');showLoader('Saving...');
   if(S.sheetsUrl)await updateRecordSheets(r.id,r);
@@ -1220,12 +1249,17 @@ function populateReportMonths(){
     sel.innerHTML+=`<option value="${val}">${d.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</option>`;
   }
 }
+function calcMinutes(r){
+  if(!r.checkIn||!r.checkOut)return 0;
+  const[ih,im]=normalizeTime(r.checkIn).split(':').map(Number);
+  const[oh,om]=normalizeTime(r.checkOut).split(':').map(Number);
+  let m=(oh*60+om)-(ih*60+im);
+  if(m<0||r.checkOutNextDay)m+=1440; // overnight shift
+  return m;
+}
 function totalHours(personId,month){
   return S.records.filter(r=>r.personId===personId&&r.date.startsWith(month)&&r.checkIn&&r.checkOut)
-    .reduce((sum,r)=>{
-      const[ih,im]=r.checkIn.split(':').map(Number);const[oh,om]=r.checkOut.split(':').map(Number);
-      let m=(oh*60+om)-(ih*60+im);if(m<0)m+=1440;return sum+m/60;
-    },0);
+    .reduce((sum,r)=>sum+calcMinutes(r)/60,0);
 }
 function switchReportTab(tab){
   document.getElementById('report-partners-tab').style.display=tab==='partners'?'':'none';
