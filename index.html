@@ -303,7 +303,7 @@ select option{background:var(--surface2);}
    </div>
     <div class="header-right">
       <div class="sync-badge" id="syncBadge">● Synced</div>
-      <div class="header-time" id="headerTime"></div>
+      <div class="header-time" id="headerTime" title="Lebanon time"></div>
       <div class="role-badge" id="roleTag"></div>
       <button class="btn btn-sm" id="themeBtn" onclick="toggleTheme()" title="Toggle dark / light mode">☀️</button>
       <button class="btn btn-sm" onclick="doLogout()" title="Lock app">🔒</button>
@@ -767,6 +767,14 @@ function showSyncBadge(ok){
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
+// The shop is physically in Lebanon, so "today"/"now" for all business logic
+// (check-ins, schedule, month rollovers, header clock) must always reflect Beirut
+// time — regardless of which country the device itself is set to. This returns a
+// Date object whose local getters (getHours, getDate, toLocaleDateString, etc.)
+// report Beirut's wall-clock values, correctly handling Lebanon's DST automatically.
+function nowBeirut(){
+  return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Beirut'}));
+}
 function fmtDate(d){return d.toLocaleDateString('en-CA');}
 function findOpenRecord(personId){
   // The record where the person checked in but hasn't checked out yet — regardless of which
@@ -804,7 +812,7 @@ function monthHasEnded(month){
   if(!month)return false;
   const[y,m]=month.split('-').map(Number);
   const nextMonthFirst=new Date(y,m,1); // m is 1-based here, so this IS next month's day 1
-  return new Date()>=nextMonthFirst;
+  return nowBeirut()>=nextMonthFirst;
 }
 function monthLabel(month){
   return new Date(month+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -951,7 +959,7 @@ function doLogout(){
 
 // ── CLOCK ─────────────────────────────────────────────────────────────────
 function startClock(){
-  function tick(){const el=document.getElementById('headerTime');if(el)el.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+  function tick(){const el=document.getElementById('headerTime');if(el)el.textContent=nowBeirut().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
   tick();setInterval(tick,10000);
 }
 
@@ -973,8 +981,8 @@ function renderAll(){renderToday();renderScheduleView();renderTimesheet();render
 
 // ── TODAY ─────────────────────────────────────────────────────────────────
 function renderToday(){
-  const today=fmtDate(new Date());
-  const now=new Date();
+  const today=fmtDate(nowBeirut());
+  const now=nowBeirut();
   document.getElementById('todayTitle').textContent=
     getDayFull(today)+', '+now.toLocaleDateString('en-US',{month:'long',day:'numeric'});
   const dhEl=document.getElementById('dutyHoursLine');
@@ -1002,7 +1010,7 @@ function renderToday(){
     const myStatus=shift[p.id]||'off';
 
     // streak
-    const nowD=new Date();
+    const nowD=nowBeirut();
     const monthStr=fmtDate(nowD).slice(0,7);
     const scheduledDays=[];
     for(let i=1;i<=nowD.getDate();i++){
@@ -1074,7 +1082,7 @@ function renderToday(){
 function openCheckin(personId){
   currentCheckinPersonId=personId;
   const person=S.people.find(p=>p.id===personId);
-  const today=fmtDate(new Date());
+  const today=fmtDate(nowBeirut());
   const openRec=findOpenRecord(personId);
   const isIn=!!openRec;
   currentCheckinIsCheckout=isIn;
@@ -1083,7 +1091,7 @@ function openCheckin(personId){
     ?`Currently in since ${openRec.date===today?'':fmtShort(openRec.date)+' '}${fmt12(openRec.checkIn)}`
     :'Not currently checked in';
   document.getElementById('checkinTimeLabel').textContent=isIn?'Check-out time':'Check-in time';
-  document.getElementById('checkinTime').value=fmtTime(new Date());
+  document.getElementById('checkinTime').value=fmtTime(nowBeirut());
   const dateWrap=document.getElementById('checkinDateWrap');
   dateWrap.style.display=isIn?'none':'';
   if(!isIn){
@@ -1113,7 +1121,7 @@ function updateCoverBothVisibility(){
   const person=S.people.find(p=>p.id===personId);
   if(!currentCheckinIsCheckout||!person||person.role!=='partner'){wrap.style.display='none';return;}
   const openRec=findOpenRecord(personId);
-  const date=openRec?openRec.date:fmtDate(new Date());
+  const date=openRec?openRec.date:fmtDate(nowBeirut());
   const bonus=getCoverBonusMinutes();
   if(bonus>0&&isOnlyDutyPersonCheckedIn(personId,date)){
     wrap.style.display='';
@@ -1131,9 +1139,9 @@ function updateCheckinNoteVisibility(){
   let date;
   if(currentCheckinIsCheckout){
     const openRec=findOpenRecord(personId);
-    date=openRec?openRec.date:fmtDate(new Date());
+    date=openRec?openRec.date:fmtDate(nowBeirut());
   }else{
-    date=document.getElementById('checkinDate').value||fmtDate(new Date());
+    date=document.getElementById('checkinDate').value||fmtDate(nowBeirut());
   }
   const duty=getScheduledDuty(personId,date);
   if(!duty||!duty.open||!duty.close){wrap.style.display='none';return;}
@@ -1184,7 +1192,7 @@ async function confirmCheckin(){
     }
     if(S.sheetsUrl)await updateRecordSheets(openRec.id,openRec);
   }else{
-    const date=document.getElementById('checkinDate').value||fmtDate(new Date());
+    const date=document.getElementById('checkinDate').value||fmtDate(nowBeirut());
     if(isMonthClosed(date.slice(0,7))){alert('This month is closed and locked.');closeModal('checkinModal');return;}
     closeModal('checkinModal');showLoader('Saving...');
     const rec={id:uid(),personId,date,checkIn:time,checkOut:null,checkOutNextDay:false};
@@ -1226,8 +1234,8 @@ function renderPeopleLegend(){
 }
 
 function renderSchedGrid(){
-  const todayStr=fmtDate(new Date());
-  const base=new Date();base.setDate(base.getDate()+weekOffset*7);
+  const todayStr=fmtDate(nowBeirut());
+  const base=nowBeirut();base.setDate(base.getDate()+weekOffset*7);
   const start=new Date(base);start.setDate(base.getDate()-base.getDay());
   const container=document.getElementById('schedRows');
   container.innerHTML='';
@@ -1293,12 +1301,12 @@ function renderSchedGrid(){
 
 function renderCalendar(){
   if(!calPersonId&&S.people.length)calPersonId=S.people[0].id;
-  const now=new Date();
+  const now=nowBeirut();
   const year=new Date(now.getFullYear(),now.getMonth()+calMonthOffset,1).getFullYear();
   const month=new Date(now.getFullYear(),now.getMonth()+calMonthOffset,1).getMonth();
   const firstDay=new Date(year,month,1);
   const lastDay=new Date(year,month+1,0);
-  const todayStr=fmtDate(new Date());
+  const todayStr=fmtDate(nowBeirut());
 
   document.getElementById('calMonthTitle').textContent=firstDay.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   document.getElementById('calTabs').innerHTML=S.people.map(p=>{
@@ -1411,7 +1419,7 @@ function populateTimesheetMonths(){
   const sel=document.getElementById('timesheetMonth');
   const prev=sel.value;
   sel.innerHTML='<option value="all">All time</option>';
-  const now=new Date();
+  const now=nowBeirut();
   for(let i=0;i<12;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const val=fmtDate(d).slice(0,7);
@@ -1519,7 +1527,7 @@ function populateReportMonths(keepMonth){
   const sel=document.getElementById('reportMonth');
   const prev=keepMonth||sel.value;
   sel.innerHTML='';
-  const now=new Date();
+  const now=nowBeirut();
   for(let i=0;i<6;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const val=fmtDate(d).slice(0,7);
@@ -1633,7 +1641,7 @@ function openAddPayment(personId){
     <div style="font-size:16px;font-weight:600;margin-bottom:16px">Log payment — ${person.name}</div>
     ${remaining!==null?`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Balance due: <b style="color:var(--text)">$${remaining.toFixed(2)}</b></div>`:''}
     <div class="ig"><label>Amount paid ($)</label><input type="number" id="pm_amount" placeholder="0" value="${remaining!==null&&remaining>0?remaining.toFixed(2):''}"></div>
-    <div class="ig"><label>Date</label><input type="date" id="pm_date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="ig"><label>Date</label><input type="date" id="pm_date" value="${fmtDate(nowBeirut())}"></div>
     <div class="ig"><label>Note (optional)</label><input type="text" id="pm_note" placeholder="e.g. Cash payment"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
       <button class="btn" onclick="this.closest('.pm-overlay').remove()">Cancel</button>
@@ -1819,7 +1827,7 @@ function renderSettings(){
   document.getElementById('duty1Close').value=(S.dutyHours&&S.dutyHours.duty1&&S.dutyHours.duty1.close)||'';
   document.getElementById('duty2Open').value=(S.dutyHours&&S.dutyHours.duty2&&S.dutyHours.duty2.open)||'';
   document.getElementById('duty2Close').value=(S.dutyHours&&S.dutyHours.duty2&&S.dutyHours.duty2.close)||'';
-  document.getElementById('anchorDate').value=S.anchor.date||fmtDate(new Date());
+  document.getElementById('anchorDate').value=S.anchor.date||fmtDate(nowBeirut());
   const ap=document.getElementById('anchorPerson');
   const partners=getRotationOrder();
   ap.innerHTML=partners.map((p,i)=>`<option value="${i}">${p.name}</option>`).join('');
@@ -2035,7 +2043,7 @@ async function saveUrl(){
 function clearUrl(){S.sheetsUrl='';document.getElementById('sheetsUrl').value='';document.getElementById('urlStatus').textContent='Disconnected.';document.getElementById('setupBanner').style.display='block';saveLocal();}
 function exportData(){
   const blob=new Blob([JSON.stringify({...S,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='zone961_backup_'+fmtDate(new Date())+'.json';a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='zone961_backup_'+fmtDate(nowBeirut())+'.json';a.click();
 }
 function populateSelectors(){
   const tf=document.getElementById('timesheetFilter');
